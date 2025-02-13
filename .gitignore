@@ -1,0 +1,62 @@
+# Dependencies
+node_modules
+bun.lockb
+
+# Build outputs
+dist
+dist-ssr
+*.local
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# TypeScript
+*.tsbuildinfo
+
+# Testing
+coverage
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional stylelint cache
+.stylelintcache
+
+# Yarn Integrity file
+.yarn-integrity
