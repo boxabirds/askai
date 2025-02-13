@@ -62,6 +62,65 @@ paths:
           description: Todo deleted successfully
         '404':
           description: Todo not found
+  /todos/batch/delete:
+    post:
+      summary: Delete multiple todos
+      operationId: deleteTodos
+      tags:
+        - todos
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ids
+              properties:
+                ids:
+                  oneOf:
+                    - type: array
+                      items:
+                        type: string
+                    - type: string
+                      enum: ['all']
+      responses:
+        '200':
+          description: Todos deleted successfully
+  /todos/batch/complete:
+    post:
+      summary: Mark multiple todos as complete
+      operationId: completeTodos
+      tags:
+        - todos
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ids
+                - completed
+              properties:
+                ids:
+                  oneOf:
+                    - type: array
+                      items:
+                        type: string
+                    - type: string
+                      enum: ['all']
+                completed:
+                  type: boolean
+      responses:
+        '200':
+          description: Todos updated successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Todo'
 components:
   schemas:
     Todo:

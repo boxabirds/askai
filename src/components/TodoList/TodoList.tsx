@@ -17,6 +17,8 @@ export function TodoList() {
   const [newTodo, setNewTodo] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState('');
 
   // Fetch todos on component mount
   useEffect(() => {
@@ -108,6 +110,52 @@ export function TodoList() {
     }
   };
 
+  const updateTodoText = async (id: string, newText: string) => {
+    try {
+      const response = await fetch(`http://localhost:3000/api/todos/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text: newText }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update todo');
+      }
+
+      const updatedTodo = await response.json();
+      setTodos(prev =>
+        prev.map(t => t.id === id ? updatedTodo : t)
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update todo');
+    }
+  };
+
+  const startEditing = (todo: Todo) => {
+    setEditingId(todo.id);
+    setEditingText(todo.text);
+  };
+
+  const handleEditKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, todo: Todo) => {
+    if (e.key === 'Enter' && editingText.trim()) {
+      updateTodoText(todo.id, editingText.trim());
+      setEditingId(null);
+    } else if (e.key === 'Escape') {
+      setEditingId(null);
+      setEditingText('');
+    }
+  };
+
+  const handleEditBlur = (todo: Todo) => {
+    if (editingText.trim()) {
+      updateTodoText(todo.id, editingText.trim());
+    }
+    setEditingId(null);
+    setEditingText('');
+  };
+
   if (error) {
     return (
       <div className="w-full max-w-2xl mx-auto p-4">
@@ -133,54 +181,60 @@ export function TodoList() {
         </Button>
       </form>
 
-      <div className="space-y-2">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          </div>
-        ) : (
-          <>
-            {todos.map(todo => (
-              <div
-                key={todo.id}
-                className={cn(
-                  "flex items-center gap-2 p-3 rounded-lg border transition-colors",
-                  todo.completed ? "bg-muted/50" : "bg-card"
-                )}
-              >
-                <Checkbox
-                  checked={todo.completed}
-                  onCheckedChange={() => toggleTodo(todo.id)}
+      <ul className="space-y-4">
+        {todos.map(todo => (
+          <li
+            key={todo.id}
+            className="flex items-center justify-between space-x-2 border rounded-lg p-4"
+          >
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                checked={todo.completed}
+                onCheckedChange={() => toggleTodo(todo.id)}
+              />
+              {editingId === todo.id ? (
+                <input
+                  type="text"
+                  value={editingText}
+                  onChange={(e) => setEditingText(e.target.value)}
+                  onKeyDown={(e) => handleEditKeyDown(e, todo)}
+                  onBlur={() => handleEditBlur(todo)}
+                  className="border rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  autoFocus
                 />
-                <div className="flex-1 min-w-0">
-                  <p className={cn(
-                    "text-sm truncate",
-                    todo.completed && "line-through text-muted-foreground"
-                  )}>
-                    {todo.text}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {format(new Date(todo.createdAt), 'MMM d, h:mm a')}
-                  </p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => deleteTodo(todo.id)}
-                  className="text-destructive hover:text-destructive/90"
+              ) : (
+                <span
+                  onClick={() => startEditing(todo)}
+                  className={cn(
+                    "cursor-pointer hover:bg-gray-100 px-2 py-1 rounded",
+                    todo.completed && "line-through text-gray-500"
+                  )}
                 >
-                  <TrashIcon className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
-            {todos.length === 0 && (
-              <div className="text-center py-8 text-muted-foreground">
-                No tasks yet. Add one above!
-              </div>
-            )}
-          </>
+                  {todo.text}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center space-x-2">
+              <p className="text-xs text-muted-foreground">
+                {format(new Date(todo.createdAt), 'MMM d, h:mm a')}
+              </p>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => deleteTodo(todo.id)}
+                className="text-destructive hover:text-destructive/90"
+              >
+                <TrashIcon className="h-4 w-4" />
+              </Button>
+            </div>
+          </li>
+        ))}
+        {todos.length === 0 && (
+          <div className="text-center py-8 text-muted-foreground">
+            No tasks yet. Add one above!
+          </div>
         )}
-      </div>
+      </ul>
     </div>
   );
 }

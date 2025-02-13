@@ -6,7 +6,8 @@ import { file } from 'bun';
 import { Todo, TodoRow } from '../types/todo';
 
 // Initialize SQLite database
-const db = new Database('todos.sqlite');
+const dbName = process.env.DB_NAME || 'todos.sqlite';
+const db = new Database(dbName);
 db.exec(`
   CREATE TABLE IF NOT EXISTS todos (
     id TEXT PRIMARY KEY,
@@ -60,6 +61,41 @@ const app = new Elysia()
         completed: false,
         createdAt
       };
+    })
+    .post('/todos/batch/delete', async ({ body }) => {
+      const { ids } = body as { ids: string[] | 'all' };
+      
+      if (ids === 'all') {
+        db.prepare('DELETE FROM todos').run();
+        return { success: true };
+      }
+
+      const placeholders = ids.map(() => '?').join(',');
+      db.prepare(`DELETE FROM todos WHERE id IN (${placeholders})`).run(...ids);
+      return { success: true };
+    })
+
+    .post('/todos/batch/complete', async ({ body }) => {
+      const { ids, completed } = body as { ids: string[] | 'all', completed: boolean };
+      const completedValue = completed ? 1 : 0;
+      
+      let updatedTodos: TodoRow[];
+      
+      if (ids === 'all') {
+        db.prepare('UPDATE todos SET completed = ?').run(completedValue);
+        updatedTodos = db.prepare('SELECT * FROM todos').all() as TodoRow[];
+      } else {
+        const placeholders = ids.map(() => '?').join(',');
+        db.prepare(`UPDATE todos SET completed = ? WHERE id IN (${placeholders})`).run(completedValue, ...ids);
+        updatedTodos = db.prepare(`SELECT * FROM todos WHERE id IN (${placeholders})`).all(...ids) as TodoRow[];
+      }
+
+      return updatedTodos.map((todo: TodoRow): Todo => ({
+        id: todo.id,
+        text: todo.text,
+        completed: Boolean(todo.completed),
+        createdAt: new Date(todo.created_at).toISOString()
+      }));
     })
     .patch('/todos/:id', ({ params, body }) => {
       const { id } = params;
