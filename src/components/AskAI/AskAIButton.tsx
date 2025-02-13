@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useFormStatus } from 'react-dom';
-import { useOptimistic } from 'react';
+import { useOptimistic, startTransition, useState } from 'react';
 import { useAskAI } from '@/hooks/useAskAI';
 
 // Types
@@ -21,7 +21,6 @@ interface OpenAPISpec {
 interface AskAIButtonProps {
   openApiSpec: OpenAPISpec;
   apiBaseUrl: string;
-  geminiApiKey: string;
 }
 
 interface ActionResponse {
@@ -39,17 +38,18 @@ function SubmitButton() {
   );
 }
 
-export const AskAIButton: FC<AskAIButtonProps> = ({ openApiSpec, apiBaseUrl, geminiApiKey }) => {
+export const AskAIButton: FC<AskAIButtonProps> = ({ openApiSpec, apiBaseUrl }) => {
+  const [isOpen, setIsOpen] = useState(false);
   const [optimisticResponse, addOptimisticResponse] = useOptimistic<ActionResponse | null>(null);
 
   const {
     askAI,
     isLoading,
-    response
+    response,
+    error: askError
   } = useAskAI({
     openApiSpec,
-    apiBaseUrl,
-    geminiApiKey
+    apiBaseUrl
   });
 
   // React 19 form handler
@@ -58,23 +58,32 @@ export const AskAIButton: FC<AskAIButtonProps> = ({ openApiSpec, apiBaseUrl, gem
     const formData = new FormData(event.currentTarget);
     const query = formData.get('query') as string;
     
+    if (!query.trim()) return;
+
     try {
-      addOptimisticResponse({ message: 'Processing your request...' });
+      startTransition(() => {
+        addOptimisticResponse({ message: 'Processing your request...' });
+      });
+
       const aiResponse = await askAI(query);
       
-      addOptimisticResponse({ 
-        message: aiResponse.explanation,
+      startTransition(() => {
+        addOptimisticResponse({ 
+          message: aiResponse.explanation,
+        });
       });
     } catch (err) {
-      addOptimisticResponse({ 
-        message: '',
-        error: err instanceof Error ? err.message : 'An error occurred'
+      startTransition(() => {
+        addOptimisticResponse({ 
+          message: '',
+          error: err instanceof Error ? err.message : 'An error occurred'
+        });
       });
     }
   }
 
   return (
-    <Dialog>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button variant="outline">✨ Ask AI</Button>
       </DialogTrigger>
@@ -96,10 +105,11 @@ export const AskAIButton: FC<AskAIButtonProps> = ({ openApiSpec, apiBaseUrl, gem
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
               placeholder="E.g., How do I create a new user?"
               disabled={isLoading}
+              autoFocus
             />
             <SubmitButton />
-            {optimisticResponse?.error ? (
-              <p className="text-red-500 text-sm">{optimisticResponse.error}</p>
+            {optimisticResponse?.error || askError ? (
+              <p className="text-red-500 text-sm">{optimisticResponse?.error || askError}</p>
             ) : optimisticResponse?.message ? (
               <div className="mt-2 p-4 bg-muted rounded-md">
                 <p className="text-sm text-foreground">{optimisticResponse.message}</p>

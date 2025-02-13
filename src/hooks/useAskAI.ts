@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 
 interface OpenAPISpec {
   paths: Record<string, any>;
@@ -9,7 +8,6 @@ interface OpenAPISpec {
 interface UseAskAIOptions {
   openApiSpec: OpenAPISpec;
   apiBaseUrl: string;
-  geminiApiKey: string;
 }
 
 interface AIResponse {
@@ -19,7 +17,15 @@ interface AIResponse {
   parameters?: Record<string, any>;
 }
 
-export function useAskAI({ openApiSpec, apiBaseUrl, geminiApiKey }: UseAskAIOptions) {
+interface ServerResponse {
+  response: string;
+  endpoint: string;
+  method: string;
+  parameters?: Record<string, any>;
+  error?: string;
+}
+
+export function useAskAI({ openApiSpec, apiBaseUrl }: UseAskAIOptions) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [response, setResponse] = useState<AIResponse | null>(null);
@@ -29,29 +35,41 @@ export function useAskAI({ openApiSpec, apiBaseUrl, geminiApiKey }: UseAskAIOpti
     setError(null);
     
     try {
-      const genAI = new GoogleGenerativeAI(geminiApiKey);
-      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+      console.log('Sending request to:', `${apiBaseUrl}/api/ask`);
+      const result = await fetch(`${apiBaseUrl}/api/ask`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query,
+          openApiSpec,
+        }),
+      });
 
-      const prompt = `
-        Given this OpenAPI specification: ${JSON.stringify(openApiSpec)}
-        And this user query: "${query}"
-        Determine which API endpoint would best fulfill this request and provide the necessary parameters.
-        Format your response as JSON with the following structure:
-        {
-          "endpoint": "/path/to/endpoint",
-          "method": "GET/POST/etc",
-          "parameters": {},
-          "explanation": "A user-friendly explanation"
-        }
-      `;
+      const data: ServerResponse = await result.json();
+      console.log('Server response:', data);
 
-      const result = await model.generateContent(prompt);
-      const responseText = result.response.text();
-      const aiResponse = JSON.parse(responseText) as AIResponse;
+      if (!result.ok || data.error) {
+        throw new Error(data.error || `Server error: ${result.status}`);
+      }
+
+      if (!data.response || !data.endpoint || !data.method) {
+        throw new Error('Invalid server response format');
+      }
+
+      const aiResponse: AIResponse = {
+        explanation: data.response,
+        endpoint: data.endpoint,
+        method: data.method,
+        parameters: data.parameters,
+      };
       
       setResponse(aiResponse);
+      setError(null);
       return aiResponse;
     } catch (err) {
+      console.error('Error in askAI:', err);
       const errorMessage = err instanceof Error ? err.message : 'An error occurred';
       setError(errorMessage);
       throw new Error(errorMessage);
@@ -60,34 +78,8 @@ export function useAskAI({ openApiSpec, apiBaseUrl, geminiApiKey }: UseAskAIOpti
     }
   };
 
-  const executeAPICall = async () => {
-    if (!response?.endpoint) return null;
-
-    try {
-      const url = new URL(response.endpoint, apiBaseUrl);
-      const result = await fetch(url.toString(), {
-        method: response.method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: response.method !== 'GET' ? JSON.stringify(response.parameters) : undefined,
-      });
-
-      if (!result.ok) {
-        throw new Error('API call failed');
-      }
-
-      return await result.json();
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'API call failed';
-      setError(errorMessage);
-      throw new Error(errorMessage);
-    }
-  };
-
   return {
     askAI,
-    executeAPICall,
     isLoading,
     error,
     response,

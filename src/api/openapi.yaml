@@ -1,0 +1,83 @@
+openapi: 3.0.0
+info:
+  title: Todo API
+  version: 1.0.0
+  description: API for managing todo items
+servers:
+  - url: http://localhost:3000
+    description: Development server
+paths:
+  /todos:
+    get:
+      summary: List all todos
+      operationId: listTodos
+      tags:
+        - todos
+      responses:
+        '200':
+          description: List of todos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Todo'
+    post:
+      summary: Create a new todo
+      operationId: createTodo
+      tags:
+        - todos
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - text
+              properties:
+                text:
+                  type: string
+      responses:
+        '201':
+          description: Created todo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Todo'
+  /todos/{id}:
+    delete:
+      summary: Delete a todo
+      operationId: deleteTodo
+      tags:
+        - todos
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Todo deleted successfully
+        '404':
+          description: Todo not found
+components:
+  schemas:
+    Todo:
+      type: object
+      required:
+        - id
+        - text
+        - completed
+        - createdAt
+      properties:
+        id:
+          type: string
+        text:
+          type: string
+        completed:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
