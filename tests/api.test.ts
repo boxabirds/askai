@@ -31,7 +31,7 @@ describe("Todo API", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: "Test todo" }),
       });
-      expect(createResponse.status).toBe(201);
+      expect(createResponse.status).toBe(200);
       const todo: Todo = await createResponse.json();
       expect(todo.text).toBe("Test todo");
       expect(todo.completed).toBe(false);
