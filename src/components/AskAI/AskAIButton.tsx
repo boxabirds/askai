@@ -13,11 +13,6 @@ import { useOptimistic, startTransition, useState } from 'react';
 import { useAskAI } from '@/hooks/useAskAI';
 
 // Types
-interface AskAIButtonProps {
-  openApiSpec: string;
-  apiBaseUrl: string;
-}
-
 interface ActionResponse {
   message: string;
   error?: string;
@@ -33,7 +28,7 @@ function SubmitButton() {
   );
 }
 
-export const AskAIButton: FC<AskAIButtonProps> = ({ openApiSpec, apiBaseUrl }) => {
+export const AskAIButton: FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [optimisticResponse, addOptimisticResponse] = useOptimistic<ActionResponse | null>(null);
 
@@ -42,10 +37,7 @@ export const AskAIButton: FC<AskAIButtonProps> = ({ openApiSpec, apiBaseUrl }) =
     isLoading,
     response,
     error: askError
-  } = useAskAI({
-    openApiSpec,
-    apiBaseUrl
-  });
+  } = useAskAI();
 
   // React 19 form handler
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -61,13 +53,15 @@ export const AskAIButton: FC<AskAIButtonProps> = ({ openApiSpec, apiBaseUrl }) =
       });
 
       const aiResponse = await askAI(query);
-      
+      console.log('AI Response:', aiResponse); // Debug log
+
       startTransition(() => {
         addOptimisticResponse({ 
-          message: aiResponse.explanation,
+          message: aiResponse.response,
         });
       });
     } catch (err) {
+      console.error('Error in handleSubmit:', err); // Debug log
       startTransition(() => {
         addOptimisticResponse({ 
           message: '',
@@ -77,8 +71,20 @@ export const AskAIButton: FC<AskAIButtonProps> = ({ openApiSpec, apiBaseUrl }) =
     }
   }
 
+  const handleOpenChange = (open: boolean) => {
+    if (!isLoading) {
+      setIsOpen(open);
+      if (!open) {
+        // Reset state when dialog closes
+        startTransition(() => {
+          addOptimisticResponse(null);
+        });
+      }
+    }
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button variant="outline">✨ Ask AI</Button>
       </DialogTrigger>
@@ -98,7 +104,7 @@ export const AskAIButton: FC<AskAIButtonProps> = ({ openApiSpec, apiBaseUrl }) =
               type="text"
               name="query"
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
-              placeholder="E.g., How do I create a new user?"
+              placeholder="E.g., How do I create a new todo?"
               disabled={isLoading}
               autoFocus
             />

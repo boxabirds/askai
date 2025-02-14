@@ -4,13 +4,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { PlusIcon, TrashIcon } from '@radix-ui/react-icons';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-
-interface Todo {
-  id: string;
-  text: string;
-  completed: boolean;
-  createdAt: string;
-}
+import { TodosService, Todo } from '@/api/generated';
 
 export function TodoList() {
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -27,11 +21,7 @@ export function TodoList() {
 
   const fetchTodos = async () => {
     try {
-      const response = await fetch('http://localhost:3000/api/todos');
-      if (!response.ok) {
-        throw new Error('Failed to fetch todos');
-      }
-      const data = await response.json();
+      const data = await TodosService.listTodos();
       setTodos(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch todos');
@@ -45,20 +35,7 @@ export function TodoList() {
     if (!newTodo.trim()) return;
 
     try {
-      const response = await fetch('http://localhost:3000/api/todos', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ text: newTodo.trim() }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to add todo');
-      }
-
-      const todo = await response.json();
+      const todo = await TodosService.createTodo({ text: newTodo.trim() });
       setTodos(prev => [todo, ...prev]);
       setNewTodo('');
     } catch (err) {
@@ -71,20 +48,7 @@ export function TodoList() {
       const todo = todos.find(t => t.id === id);
       if (!todo) return;
 
-      const response = await fetch(`http://localhost:3000/api/todos/${id}`, {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ completed: !todo.completed }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update todo');
-      }
-
-      const updatedTodo = await response.json();
+      const updatedTodo = await TodosService.updateTodo(id, { completed: !todo.completed });
       setTodos(prev =>
         prev.map(t => t.id === id ? updatedTodo : t)
       );
@@ -95,146 +59,105 @@ export function TodoList() {
 
   const deleteTodo = async (id: string) => {
     try {
-      const response = await fetch(`http://localhost:3000/api/todos/${id}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete todo');
-      }
-
-      setTodos(prev => prev.filter(todo => todo.id !== id));
+      await TodosService.deleteTodo(id);
+      setTodos(prev => prev.filter(t => t.id !== id));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete todo');
     }
   };
 
-  const updateTodoText = async (id: string, newText: string) => {
+  const updateTodoText = async (id: string, text: string) => {
     try {
-      const response = await fetch(`http://localhost:3000/api/todos/${id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ text: newText }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update todo');
-      }
-
-      const updatedTodo = await response.json();
+      const updatedTodo = await TodosService.updateTodo(id, { text });
       setTodos(prev =>
         prev.map(t => t.id === id ? updatedTodo : t)
       );
+      setEditingId(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update todo');
     }
   };
 
-  const startEditing = (todo: Todo) => {
-    setEditingId(todo.id);
-    setEditingText(todo.text);
-  };
-
-  const handleEditKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, todo: Todo) => {
-    if (e.key === 'Enter' && editingText.trim()) {
-      updateTodoText(todo.id, editingText.trim());
-      setEditingId(null);
-    } else if (e.key === 'Escape') {
-      setEditingId(null);
-      setEditingText('');
-    }
-  };
-
-  const handleEditBlur = (todo: Todo) => {
-    if (editingText.trim()) {
-      updateTodoText(todo.id, editingText.trim());
-    }
-    setEditingId(null);
-    setEditingText('');
-  };
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
 
   if (error) {
-    return (
-      <div className="w-full max-w-2xl mx-auto p-4">
-        <div className="bg-destructive/10 text-destructive p-4 rounded-md">
-          {error}
-        </div>
-      </div>
-    );
+    return <div>Error: {error}</div>;
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto p-4 space-y-4">
-      <form onSubmit={addTodo} className="flex gap-2">
+    <div className="max-w-2xl mx-auto p-4">
+      <form onSubmit={addTodo} className="flex gap-2 mb-4">
         <input
           type="text"
           value={newTodo}
           onChange={(e) => setNewTodo(e.target.value)}
-          placeholder="Add a new task..."
-          className="flex-1 h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+          placeholder="Add a new todo..."
+          className="flex-1 px-3 py-2 border rounded-md"
         />
-        <Button type="submit" size="icon">
+        <Button type="submit">
           <PlusIcon className="h-4 w-4" />
+          Add
         </Button>
       </form>
 
-      <ul className="space-y-4">
-        {todos.map(todo => (
-          <li
+      <div className="space-y-2">
+        {todos.map((todo) => (
+          <div
             key={todo.id}
-            className="flex items-center justify-between space-x-2 border rounded-lg p-4"
+            className={cn(
+              "flex items-center gap-2 p-2 rounded hover:bg-gray-50",
+              todo.completed && "text-gray-500"
+            )}
           >
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                checked={todo.completed}
-                onCheckedChange={() => toggleTodo(todo.id)}
+            <Checkbox
+              checked={todo.completed}
+              onCheckedChange={() => toggleTodo(todo.id)}
+            />
+            
+            {editingId === todo.id ? (
+              <input
+                type="text"
+                value={editingText}
+                onChange={(e) => setEditingText(e.target.value)}
+                onBlur={() => updateTodoText(todo.id, editingText)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    updateTodoText(todo.id, editingText);
+                  } else if (e.key === 'Escape') {
+                    setEditingId(null);
+                  }
+                }}
+                className="flex-1 px-2 py-1 border rounded"
+                autoFocus
               />
-              {editingId === todo.id ? (
-                <input
-                  type="text"
-                  value={editingText}
-                  onChange={(e) => setEditingText(e.target.value)}
-                  onKeyDown={(e) => handleEditKeyDown(e, todo)}
-                  onBlur={() => handleEditBlur(todo)}
-                  className="border rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  autoFocus
-                />
-              ) : (
-                <span
-                  onClick={() => startEditing(todo)}
-                  className={cn(
-                    "cursor-pointer hover:bg-gray-100 px-2 py-1 rounded",
-                    todo.completed && "line-through text-gray-500"
-                  )}
-                >
-                  {todo.text}
-                </span>
-              )}
-            </div>
-            <div className="flex items-center space-x-2">
-              <p className="text-xs text-muted-foreground">
-                {format(new Date(todo.createdAt), 'MMM d, h:mm a')}
-              </p>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => deleteTodo(todo.id)}
-                className="text-destructive hover:text-destructive/90"
+            ) : (
+              <span
+                className="flex-1 cursor-pointer"
+                onDoubleClick={() => {
+                  setEditingId(todo.id);
+                  setEditingText(todo.text);
+                }}
               >
-                <TrashIcon className="h-4 w-4" />
-              </Button>
-            </div>
-          </li>
-        ))}
-        {todos.length === 0 && (
-          <div className="text-center py-8 text-muted-foreground">
-            No tasks yet. Add one above!
+                {todo.text}
+              </span>
+            )}
+            
+            <span className="text-sm text-gray-500">
+              {format(new Date(todo.createdAt), 'MMM d, yyyy')}
+            </span>
+            
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => deleteTodo(todo.id)}
+            >
+              <TrashIcon className="h-4 w-4" />
+            </Button>
           </div>
-        )}
-      </ul>
+        ))}
+      </div>
     </div>
   );
 }
