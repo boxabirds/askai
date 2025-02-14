@@ -35,6 +35,7 @@ const app = new Elysia()
   .use(swagger({
     documentation: openApiSpec
   }))
+  .get('/api/openapi.yaml', () => openApiSpec)
   .group('/api', app => app
     .get('/todos', () => {
       const todos = db.query('SELECT * FROM todos ORDER BY created_at DESC').all() as TodoRow[];

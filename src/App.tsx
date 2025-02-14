@@ -1,16 +1,34 @@
 import { Suspense } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { TodoList } from './components/TodoList/TodoList';
+import { AskAIButton } from './components/AskAI/AskAIButton';
+import { useOpenApiSpec } from './hooks/useOpenApiSpec';
 
 function App() {
+  const { spec: openApiSpec, error: specError } = useOpenApiSpec();
+
+  if (specError) {
+    console.error('Failed to load OpenAPI spec:', specError);
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto py-8 px-4">
-        <header className="text-center mb-8">
-          <h1 className="text-4xl font-bold tracking-tight">Tasks</h1>
-          <p className="text-muted-foreground mt-2">
-            Keep track of your tasks and get things done.
-          </p>
+        <header className="mb-8 relative">
+          <div className="absolute right-0 top-0">
+            {openApiSpec && (
+              <AskAIButton 
+                openApiSpec={openApiSpec} 
+                apiBaseUrl="http://localhost:3000" 
+              />
+            )}
+          </div>
+          <div className="text-center">
+            <h1 className="text-4xl font-bold tracking-tight">Tasks</h1>
+            <p className="text-muted-foreground mt-2">
+              Keep track of your tasks and get things done.
+            </p>
+          </div>
         </header>
 
         <ErrorBoundary

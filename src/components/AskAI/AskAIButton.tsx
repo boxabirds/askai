@@ -13,13 +13,8 @@ import { useOptimistic, startTransition, useState } from 'react';
 import { useAskAI } from '@/hooks/useAskAI';
 
 // Types
-interface OpenAPISpec {
-  paths: Record<string, any>;
-  components?: Record<string, any>;
-}
-
 interface AskAIButtonProps {
-  openApiSpec: OpenAPISpec;
+  openApiSpec: string;
   apiBaseUrl: string;
 }
 

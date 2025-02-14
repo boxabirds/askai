@@ -1,12 +1,7 @@
 import { useState } from 'react';
 
-interface OpenAPISpec {
-  paths: Record<string, any>;
-  components?: Record<string, any>;
-}
-
 interface UseAskAIOptions {
-  openApiSpec: OpenAPISpec;
+  openApiSpec: string;
   apiBaseUrl: string;
 }
 
