@@ -29,7 +29,7 @@ const app = new Elysia()
   }))
   .get('/api/openapi.yaml', () => openApiYaml)
   .group('/api', app => app
-    .post('/ask', ({ body }) => aiService.askAI(body as AskAiRequest))
+    .post('/ask', async ({ body }) => aiService.askAI(body as AskAiRequest))
     .get('/todos', () => todoHandler.listTodos())
     .post('/todos', ({ body }) => {
       const { text } = body as { text: string };

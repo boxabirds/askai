@@ -1,51 +1,59 @@
+import OpenAI from 'openai';
 import type { AskAiRequest } from '@/api/generated/models/AskAiRequest';
 import type { AskAiResponse } from '@/api/generated/models/AskAiResponse';
+import { AI_CONFIG } from '../config/ai';
 
 export class AiHandler {
-  askAI(request: AskAiRequest): AskAiResponse {
-    const { query } = request;
+  private client: OpenAI;
+
+  constructor() {
+    if (!AI_CONFIG.apiKey) {
+      throw new Error('GEMINI_API_KEY environment variable is required');
+    }
     
-    // Simple AI logic - just for demonstration
-    if (query.toLowerCase().includes('create') || query.toLowerCase().includes('add')) {
+    this.client = new OpenAI({
+      apiKey: AI_CONFIG.apiKey,
+      baseURL: AI_CONFIG.baseURL,
+    });
+  }
+
+  async askAI(request: AskAiRequest): Promise<AskAiResponse> {
+    try {
+      const completion = await this.client.chat.completions.create({
+        model: AI_CONFIG.model,
+        messages: [
+          { role: 'system', content: AI_CONFIG.systemPrompt },
+          { role: 'user', content: request.query }
+        ],
+        temperature: AI_CONFIG.temperature,
+      });
+
+      const content = completion.choices[0]?.message?.content;
+      
+      if (!content) {
+        throw new Error('No response from AI');
+      }
+
+      try {
+        // Parse the JSON response
+        const parsedResponse = JSON.parse(content);
+        return parsedResponse as AskAiResponse;
+      } catch (error) {
+        console.error('Failed to parse AI response as JSON:', content);
+        // Fallback response if parsing fails
+        return {
+          response: "I apologize, but I'm having trouble understanding how to help with that specific request. Could you try rephrasing it?",
+          endpoint: '/api/todos',
+          method: 'GET'
+        };
+      }
+    } catch (error) {
+      console.error('AI request failed:', error);
       return {
-        response: "To create a new todo, you'll need to make a POST request with the todo text.",
-        endpoint: '/api/todos',
-        method: 'POST',
-        parameters: {
-          text: 'Your todo text here'
-        }
-      };
-    } else if (query.toLowerCase().includes('complete') || query.toLowerCase().includes('done')) {
-      return {
-        response: "To mark a todo as complete, you'll need to make a PATCH request with the todo ID.",
-        endpoint: '/api/todos/{id}',
-        method: 'PATCH',
-        parameters: {
-          id: 'todo-id',
-          completed: true
-        }
-      };
-    } else if (query.toLowerCase().includes('delete') || query.toLowerCase().includes('remove')) {
-      return {
-        response: "To delete a todo, you'll need to make a DELETE request with the todo ID.",
-        endpoint: '/api/todos/{id}',
-        method: 'DELETE',
-        parameters: {
-          id: 'todo-id'
-        }
-      };
-    } else if (query.toLowerCase().includes('list') || query.toLowerCase().includes('get') || query.toLowerCase().includes('show')) {
-      return {
-        response: "To list all todos, you'll need to make a GET request.",
+        response: "I apologize, but I'm currently having trouble processing your request. Please try again later.",
         endpoint: '/api/todos',
         method: 'GET'
       };
     }
-    
-    return {
-      response: "I can help you with creating, completing, deleting, or listing todos. What would you like to do?",
-      endpoint: '/api/todos',
-      method: 'GET'
-    };
   }
 }
