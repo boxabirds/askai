@@ -1,4 +1,5 @@
 /**
+ * Authored by Claude Sonnet 3.5 via Windsurf
  * This utility function combines two libraries to handle Tailwind CSS class merging:
  * 
  * 1. clsx (https://github.com/lukeed/clsx):
