@@ -2,7 +2,7 @@
   "tools": [
     {
       "name": "listTodos",
-      "description": "List all todos",
+      "description": "List all todos\nEndpoint: /todos\nMethod: GET",
       "parameters": {
         "type": "object",
         "properties": {},
@@ -11,12 +11,13 @@
     },
     {
       "name": "createTodo",
-      "description": "Create a new todo",
+      "description": "Create a new todo\nEndpoint: /todos\nMethod: POST",
       "parameters": {
         "type": "object",
         "properties": {
           "text": {
-            "type": "string"
+            "type": "string",
+            "description": "The text content of the todo item"
           }
         },
         "required": [
@@ -26,13 +27,13 @@
     },
     {
       "name": "deleteTodo",
-      "description": "Delete a todo",
+      "description": "Delete a todo\nEndpoint: /todos/{id}\nMethod: DELETE",
       "parameters": {
         "type": "object",
         "properties": {
           "id": {
             "type": "string",
-            "description": "path parameter id"
+            "description": "path parameter: id"
           }
         },
         "required": [
@@ -42,25 +43,13 @@
     },
     {
       "name": "deleteTodos",
-      "description": "Delete multiple todos",
+      "description": "Delete multiple todos\nEndpoint: /todos/batch/delete\nMethod: POST",
       "parameters": {
         "type": "object",
         "properties": {
           "ids": {
-            "oneOf": [
-              {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              {
-                "type": "string",
-                "enum": [
-                  "all"
-                ]
-              }
-            ]
+            "type": "string",
+            "description": "Specify either 'all' to affect all todos, or a comma-separated list of todo IDs (e.g., 'id1,id2,id3')"
           }
         },
         "required": [
@@ -70,28 +59,17 @@
     },
     {
       "name": "completeTodos",
-      "description": "Mark multiple todos as complete",
+      "description": "Mark multiple todos as complete\nEndpoint: /todos/batch/complete\nMethod: POST",
       "parameters": {
         "type": "object",
         "properties": {
           "ids": {
-            "oneOf": [
-              {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              {
-                "type": "string",
-                "enum": [
-                  "all"
-                ]
-              }
-            ]
+            "type": "string",
+            "description": "Specify either 'all' to affect all todos, or a comma-separated list of todo IDs (e.g., 'id1,id2,id3')"
           },
           "completed": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Whether to mark the todo(s) as completed (true) or not completed (false)"
           }
         },
         "required": [

@@ -1,37 +1,11 @@
 import { file } from 'bun';
 import yaml from 'yaml';
-
-interface OpenAPIOperation {
-  summary?: string;
-  description?: string;
-  operationId?: string;
-  parameters?: any[];
-  requestBody?: any;
-  responses?: any;
-}
-
-interface OpenAPIPathItem {
-  get?: OpenAPIOperation;
-  post?: OpenAPIOperation;
-  put?: OpenAPIOperation;
-  delete?: OpenAPIOperation;
-  patch?: OpenAPIOperation;
-}
-
-interface OpenAPISpec {
-  paths: Record<string, OpenAPIPathItem>;
-}
+import { OpenAPIV3 } from 'openapi-types';
 
 interface OpenAIFunctionParameter {
   type: string;
   description?: string;
   enum?: string[];
-  items?: {
-    type: string;
-    [key: string]: any;
-  };
-  properties?: Record<string, OpenAIFunctionParameter>;
-  required?: string[];
 }
 
 interface OpenAIFunction {
@@ -44,27 +18,54 @@ interface OpenAIFunction {
   };
 }
 
-function convertParametersToOpenAI(parameters: any[] = [], requestBody: any = null): OpenAIFunction['parameters'] {
+function convertParametersToOpenAI(
+  parameters: OpenAPIV3.ParameterObject[] = [], 
+  requestBody: OpenAPIV3.RequestBodyObject | null = null
+): OpenAIFunction['parameters'] {
   const properties: Record<string, OpenAIFunctionParameter> = {};
   const required: string[] = [];
 
   // Handle path/query parameters
   for (const param of parameters) {
-    properties[param.name] = {
-      type: param.schema.type,
-      description: param.description || `${param.in} parameter ${param.name}`
-    };
-    if (param.required) {
-      required.push(param.name);
+    if ('schema' in param) {
+      const schema = param.schema as OpenAPIV3.SchemaObject;
+      properties[param.name] = {
+        type: schema.type as string,
+        description: param.description || `${param.in} parameter: ${param.name}`
+      };
+      if (param.required) {
+        required.push(param.name);
+      }
     }
   }
 
   // Handle request body
   if (requestBody?.content?.['application/json']?.schema) {
-    const bodySchema = requestBody.content['application/json'].schema;
+    const bodySchema = requestBody.content['application/json'].schema as OpenAPIV3.SchemaObject;
     if (bodySchema.properties) {
       for (const [propName, propSchema] of Object.entries(bodySchema.properties)) {
-        properties[propName] = propSchema as OpenAIFunctionParameter;
+        const schema = propSchema as OpenAPIV3.SchemaObject;
+        if (propName === 'ids') {
+          properties[propName] = {
+            type: "string",
+            description: "Specify either 'all' to affect all todos, or a comma-separated list of todo IDs (e.g., 'id1,id2,id3')"
+          };
+        } else if (propName === 'completed') {
+          properties[propName] = {
+            type: "boolean",
+            description: "Whether to mark the todo(s) as completed (true) or not completed (false)"
+          };
+        } else if (propName === 'text') {
+          properties[propName] = {
+            type: "string",
+            description: "The text content of the todo item"
+          };
+        } else {
+          properties[propName] = {
+            type: schema.type as string,
+            description: schema.description || `Parameter: ${propName}`
+          };
+        }
       }
       if (bodySchema.required) {
         required.push(...bodySchema.required);
@@ -79,13 +80,26 @@ function convertParametersToOpenAI(parameters: any[] = [], requestBody: any = nu
   };
 }
 
-function convertOperationToOpenAI(path: string, method: string, operation: OpenAPIOperation): OpenAIFunction {
+function convertOperationToOpenAI(
+  path: string, 
+  method: string, 
+  operation: OpenAPIV3.OperationObject
+): OpenAIFunction {
   const name = operation.operationId || `${method}${path.replace(/\//g, '_').replace(/[{}]/g, '')}`;
+  const description = operation.description || operation.summary || `${method.toUpperCase()} ${path}`;
+  
+  // Add more context to the description
+  const fullDescription = `${description}
+Endpoint: ${path}
+Method: ${method.toUpperCase()}`;
   
   return {
     name,
-    description: operation.summary || operation.description || `${method.toUpperCase()} ${path}`,
-    parameters: convertParametersToOpenAI(operation.parameters, operation.requestBody)
+    description: fullDescription,
+    parameters: convertParametersToOpenAI(
+      operation.parameters as OpenAPIV3.ParameterObject[],
+      operation.requestBody as OpenAPIV3.RequestBodyObject
+    )
   };
 }
 
@@ -93,22 +107,22 @@ async function generateOpenAITools() {
   try {
     // Read OpenAPI spec
     const openApiText = await file('./src/api/openapi.yaml').text();
-    const openApiSpec = yaml.parse(openApiText) as OpenAPISpec;
+    const openApiSpec = yaml.parse(openApiText) as OpenAPIV3.Document;
     
     const tools: OpenAIFunction[] = [];
 
     // Convert each path and method to an OpenAI function
     for (const [path, pathItem] of Object.entries(openApiSpec.paths)) {
       for (const [method, operation] of Object.entries(pathItem)) {
-        if (operation) {
-          tools.push(convertOperationToOpenAI(path, method, operation));
+        if (operation && method !== 'parameters') {  // Skip path-level parameters
+          tools.push(convertOperationToOpenAI(path, method, operation as OpenAPIV3.OperationObject));
         }
       }
     }
 
     // Write the tools JSON file
     const toolsJson = JSON.stringify({ tools }, null, 2);
-    await Bun.write('./src/api/openapi-tools.json', toolsJson);
+    await Bun.write('./src/api/openai-tools.json', toolsJson);
     
     console.log('Successfully generated OpenAI tools JSON');
   } catch (error) {
