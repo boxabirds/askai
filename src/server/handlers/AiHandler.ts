@@ -3,6 +3,14 @@ import type { AskAiRequest } from '@/api/generated/models/AskAiRequest';
 import type { AskAiResponse } from '@/api/generated/models/AskAiResponse';
 import { AI_CONFIG } from '../config/ai';
 
+interface ToolResponse {
+  tool: {
+    name: string;
+    parameters: Record<string, any>;
+  } | null;
+  explanation: string;
+}
+
 export class AiHandler {
   private client: OpenAI;
 
@@ -25,6 +33,7 @@ export class AiHandler {
           { role: 'system', content: AI_CONFIG.systemPrompt },
           { role: 'user', content: request.query }
         ],
+        tools: AI_CONFIG.tools,
         temperature: AI_CONFIG.temperature,
       });
 
@@ -35,25 +44,88 @@ export class AiHandler {
       }
 
       try {
-        // Parse the JSON response
-        const parsedResponse = JSON.parse(content);
-        return parsedResponse as AskAiResponse;
-      } catch (error) {
-        console.error('Failed to parse AI response as JSON:', content);
-        // Fallback response if parsing fails
+        // Parse the response as a ToolResponse
+        const response = JSON.parse(content) as ToolResponse;
+        
+        // If no tool was selected
+        if (!response.tool) {
+          return {
+            response: response.explanation,
+            success: false
+          };
+        }
+
+        // Validate the selected tool exists
+        const toolConfig = AI_CONFIG.tools.find(t => t.name === response.tool!.name);
+        if (!toolConfig) {
+          throw new Error(`AI selected invalid tool: ${response.tool.name}`);
+        }
+
+        // Validate parameters against tool schema
+        this.validateToolParameters(response.tool.parameters, toolConfig.parameters);
+
         return {
-          response: "I apologize, but I'm having trouble understanding how to help with that specific request. Could you try rephrasing it?",
-          endpoint: '/api/todos',
-          method: 'GET'
+          response: response.explanation,
+          selectedTool: response.tool.name,
+          parameters: response.tool.parameters,
+          success: true
+        };
+
+      } catch (error) {
+        console.error('Failed to process AI response:', error);
+        return {
+          response: "I'm having trouble understanding how to help with that request. Could you try rephrasing it?",
+          success: false
         };
       }
     } catch (error) {
       console.error('AI request failed:', error);
       return {
-        response: "I apologize, but I'm currently having trouble processing your request. Please try again later.",
-        endpoint: '/api/todos',
-        method: 'GET'
+        response: "Sorry, I encountered an error while processing your request. Please try again.",
+        success: false
       };
+    }
+  }
+
+  private validateToolParameters(
+    params: Record<string, any>,
+    schema: { type: string; properties: Record<string, any>; required?: string[] }
+  ): void {
+    // Check required parameters are present
+    if (schema.required) {
+      for (const required of schema.required) {
+        if (!(required in params)) {
+          throw new Error(`Missing required parameter: ${required}`);
+        }
+      }
+    }
+
+    // Validate parameter types (basic validation)
+    for (const [key, value] of Object.entries(params)) {
+      const paramSchema = schema.properties[key];
+      if (!paramSchema) {
+        throw new Error(`Unknown parameter: ${key}`);
+      }
+
+      // Basic type checking
+      switch (paramSchema.type) {
+        case 'string':
+          if (typeof value !== 'string') {
+            throw new Error(`Parameter ${key} must be a string`);
+          }
+          break;
+        case 'number':
+          if (typeof value !== 'number') {
+            throw new Error(`Parameter ${key} must be a number`);
+          }
+          break;
+        case 'boolean':
+          if (typeof value !== 'boolean') {
+            throw new Error(`Parameter ${key} must be a boolean`);
+          }
+          break;
+        // Add more types as needed
+      }
     }
   }
 }

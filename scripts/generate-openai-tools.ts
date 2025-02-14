@@ -8,7 +8,7 @@ interface OpenAIFunctionParameter {
   enum?: string[];
 }
 
-interface OpenAIFunction {
+interface OpenAIFunctionDefinition {
   name: string;
   description: string;
   parameters: {
@@ -18,10 +18,15 @@ interface OpenAIFunction {
   };
 }
 
+interface OpenAITool {
+  type: 'function';
+  function: OpenAIFunctionDefinition;
+}
+
 function convertParametersToOpenAI(
   parameters: OpenAPIV3.ParameterObject[] = [], 
   requestBody: OpenAPIV3.RequestBodyObject | null = null
-): OpenAIFunction['parameters'] {
+): OpenAIFunctionDefinition['parameters'] {
   const properties: Record<string, OpenAIFunctionParameter> = {};
   const required: string[] = [];
 
@@ -50,20 +55,10 @@ function convertParametersToOpenAI(
             type: "string",
             description: "Specify either 'all' to affect all todos, or a comma-separated list of todo IDs (e.g., 'id1,id2,id3')"
           };
-        } else if (propName === 'completed') {
-          properties[propName] = {
-            type: "boolean",
-            description: "Whether to mark the todo(s) as completed (true) or not completed (false)"
-          };
-        } else if (propName === 'text') {
-          properties[propName] = {
-            type: "string",
-            description: "The text content of the todo item"
-          };
         } else {
           properties[propName] = {
             type: schema.type as string,
-            description: schema.description || `Parameter: ${propName}`
+            description: schema.description
           };
         }
       }
@@ -84,7 +79,7 @@ function convertOperationToOpenAI(
   path: string, 
   method: string, 
   operation: OpenAPIV3.OperationObject
-): OpenAIFunction {
+): OpenAITool {
   const name = operation.operationId || `${method}${path.replace(/\//g, '_').replace(/[{}]/g, '')}`;
   const description = operation.description || operation.summary || `${method.toUpperCase()} ${path}`;
   
@@ -94,12 +89,15 @@ Endpoint: ${path}
 Method: ${method.toUpperCase()}`;
   
   return {
-    name,
-    description: fullDescription,
-    parameters: convertParametersToOpenAI(
-      operation.parameters as OpenAPIV3.ParameterObject[],
-      operation.requestBody as OpenAPIV3.RequestBodyObject
-    )
+    type: 'function',
+    function: {
+      name,
+      description: fullDescription,
+      parameters: convertParametersToOpenAI(
+        operation.parameters as OpenAPIV3.ParameterObject[],
+        operation.requestBody as OpenAPIV3.RequestBodyObject
+      )
+    }
   };
 }
 
@@ -109,24 +107,31 @@ async function generateOpenAITools() {
     const openApiText = await file('./src/api/openapi.yaml').text();
     const openApiSpec = yaml.parse(openApiText) as OpenAPIV3.Document;
     
-    const tools: OpenAIFunction[] = [];
-
-    // Convert each path and method to an OpenAI function
+    const tools: OpenAITool[] = [];
+    
+    // Convert each path+operation to an OpenAI function
     for (const [path, pathItem] of Object.entries(openApiSpec.paths)) {
       for (const [method, operation] of Object.entries(pathItem)) {
-        if (operation && method !== 'parameters') {  // Skip path-level parameters
-          tools.push(convertOperationToOpenAI(path, method, operation as OpenAPIV3.OperationObject));
-        }
+        if (method === 'parameters' || method === '$ref') continue;
+        
+        const tool = convertOperationToOpenAI(
+          path,
+          method,
+          operation as OpenAPIV3.OperationObject
+        );
+        tools.push(tool);
       }
     }
-
-    // Write the tools JSON file
-    const toolsJson = JSON.stringify({ tools }, null, 2);
-    await Bun.write('./src/api/openai-tools.json', toolsJson);
     
-    console.log('Successfully generated OpenAI tools JSON');
+    // Write the tools to a JSON file
+    await Bun.write(
+      './src/api/openai-tools.json',
+      JSON.stringify({ tools }, null, 2)
+    );
+    
+    console.log('Successfully generated OpenAI tools configuration');
   } catch (error) {
-    console.error('Error generating OpenAI tools:', error);
+    console.error('Failed to generate OpenAI tools:', error);
     process.exit(1);
   }
 }

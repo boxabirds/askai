@@ -1,0 +1,132 @@
+{
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "askAi",
+        "description": "Ask AI about the API\nEndpoint: /api/ask\nMethod: POST",
+        "parameters": {
+          "type": "object",
+          "properties": {},
+          "required": []
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "listTodos",
+        "description": "List all todos\nEndpoint: /api/todos\nMethod: GET",
+        "parameters": {
+          "type": "object",
+          "properties": {},
+          "required": []
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "createTodo",
+        "description": "Create a new todo\nEndpoint: /api/todos\nMethod: POST",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "text"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "deleteTodo",
+        "description": "Delete a todo\nEndpoint: /api/todos/{id}\nMethod: DELETE",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "path parameter: id"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "updateTodo",
+        "description": "Update a todo\nEndpoint: /api/todos/{id}\nMethod: PATCH",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "path parameter: id"
+            },
+            "text": {
+              "type": "string"
+            },
+            "completed": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "deleteTodos",
+        "description": "Delete multiple todos\nEndpoint: /api/todos/batch/delete\nMethod: POST",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "ids": {
+              "type": "string",
+              "description": "Specify either 'all' to affect all todos, or a comma-separated list of todo IDs (e.g., 'id1,id2,id3')"
+            }
+          },
+          "required": [
+            "ids"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "completeTodos",
+        "description": "Mark multiple todos as complete\nEndpoint: /api/todos/batch/complete\nMethod: POST",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "ids": {
+              "type": "string",
+              "description": "Specify either 'all' to affect all todos, or a comma-separated list of todo IDs (e.g., 'id1,id2,id3')"
+            },
+            "completed": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "ids",
+            "completed"
+          ]
+        }
+      }
+    }
+  ]
+}

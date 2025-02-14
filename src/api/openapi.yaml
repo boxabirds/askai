@@ -202,19 +202,18 @@ components:
       type: object
       required:
         - response
-        - endpoint
-        - method
+        - success
       properties:
         response:
           type: string
-          description: The AI's explanation
-        endpoint:
+          description: A clear explanation of what action was taken or why no action was possible
+        success:
+          type: boolean
+          description: Whether a valid tool was identified for the request
+        selectedTool:
           type: string
-          description: The relevant API endpoint
-        method:
-          type: string
-          description: The HTTP method to use
+          description: The name of the selected tool (only present if success is true)
         parameters:
           type: object
-          description: Optional parameters for the API call
           additionalProperties: true
+          description: Parameters for the selected tool (only present if success is true)

@@ -4,19 +4,19 @@
 /* eslint-disable */
 export type AskAiResponse = {
     /**
-     * The AI's explanation
+     * A clear explanation of what action was taken or why no action was possible
      */
     response: string;
     /**
-     * The relevant API endpoint
+     * Whether a valid tool was identified for the request
      */
-    endpoint: string;
+    success: boolean;
     /**
-     * The HTTP method to use
+     * The name of the selected tool (only present if success is true)
      */
-    method: string;
+    selectedTool?: string;
     /**
-     * Optional parameters for the API call
+     * Parameters for the selected tool (only present if success is true)
      */
     parameters?: Record<string, any>;
 };
