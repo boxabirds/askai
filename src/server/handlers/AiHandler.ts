@@ -16,12 +16,11 @@ export class AiHandler {
 
   constructor() {
     if (!AI_CONFIG.apiKey) {
-      throw new Error('GEMINI_API_KEY environment variable is required');
+      throw new Error('OPENAI_API_KEY environment variable is required');
     }
     
     this.client = new OpenAI({
       apiKey: AI_CONFIG.apiKey,
-      baseURL: AI_CONFIG.baseURL,
     });
   }
 
@@ -56,13 +55,15 @@ export class AiHandler {
         }
 
         // Validate the selected tool exists
-        const toolConfig = AI_CONFIG.tools.find(t => t.name === response.tool!.name);
+        const toolConfig = AI_CONFIG.tools.find(t => t.function.name === response.tool!.name);
         if (!toolConfig) {
           throw new Error(`AI selected invalid tool: ${response.tool.name}`);
         }
 
-        // Validate parameters against tool schema
-        this.validateToolParameters(response.tool.parameters, toolConfig.parameters);
+        // Skip parameter validation if no parameters schema is defined
+        if (toolConfig.function.parameters) {
+          this.validateToolParameters(response.tool.parameters, toolConfig.function.parameters);
+        }
 
         return {
           response: response.explanation,
@@ -89,42 +90,58 @@ export class AiHandler {
 
   private validateToolParameters(
     params: Record<string, any>,
-    schema: { type: string; properties: Record<string, any>; required?: string[] }
+    schema: OpenAI.FunctionParameters
   ): void {
     // Check required parameters are present
-    if (schema.required) {
-      for (const required of schema.required) {
+    if (schema.required && Array.isArray(schema.required)) {
+      schema.required.forEach(required => {
         if (!(required in params)) {
           throw new Error(`Missing required parameter: ${required}`);
         }
-      }
+      });
     }
 
     // Validate parameter types (basic validation)
-    for (const [key, value] of Object.entries(params)) {
-      const paramSchema = schema.properties[key];
-      if (!paramSchema) {
-        throw new Error(`Unknown parameter: ${key}`);
-      }
+    const properties = schema.properties as Record<string, { type?: string }>;
+    if (properties && typeof properties === 'object') {
+      for (const [key, value] of Object.entries(params)) {
+        const paramSchema = properties[key];
+        if (!paramSchema) {
+          throw new Error(`Unknown parameter: ${key}`);
+        }
 
-      // Basic type checking
-      switch (paramSchema.type) {
-        case 'string':
-          if (typeof value !== 'string') {
-            throw new Error(`Parameter ${key} must be a string`);
+        // Basic type checking
+        if (paramSchema.type) {
+          switch (paramSchema.type) {
+            case 'string':
+              if (typeof value !== 'string') {
+                throw new Error(`Parameter ${key} must be a string`);
+              }
+              break;
+            case 'number':
+            case 'integer':
+              if (typeof value !== 'number') {
+                throw new Error(`Parameter ${key} must be a number`);
+              }
+              break;
+            case 'boolean':
+              if (typeof value !== 'boolean') {
+                throw new Error(`Parameter ${key} must be a boolean`);
+              }
+              break;
+            case 'array':
+              if (!Array.isArray(value)) {
+                throw new Error(`Parameter ${key} must be an array`);
+              }
+              break;
+            case 'object':
+              if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+                throw new Error(`Parameter ${key} must be an object`);
+              }
+              break;
+            // Add more types as needed
           }
-          break;
-        case 'number':
-          if (typeof value !== 'number') {
-            throw new Error(`Parameter ${key} must be a number`);
-          }
-          break;
-        case 'boolean':
-          if (typeof value !== 'boolean') {
-            throw new Error(`Parameter ${key} must be a boolean`);
-          }
-          break;
-        // Add more types as needed
+        }
       }
     }
   }

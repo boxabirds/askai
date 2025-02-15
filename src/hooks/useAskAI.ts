@@ -1,12 +1,9 @@
 import { useState } from 'react';
 import { AiService } from '@/api/generated';
+import type { AskAiResponse } from '@/api/generated/models/AskAiResponse';
 
-interface AIResponse {
-  response: string;
-  endpoint: string;
-  method: string;
-  parameters?: Record<string, any>;
-}
+// Use the generated type directly
+type AIResponse = AskAiResponse;
 
 export function useAskAI() {
   const [isLoading, setIsLoading] = useState(false);
@@ -32,8 +29,8 @@ export function useAskAI() {
 
   return {
     askAI,
-    response,
     isLoading,
     error,
+    response
   };
 }

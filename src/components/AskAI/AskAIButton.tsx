@@ -16,6 +16,10 @@ import { useAskAI } from '@/hooks/useAskAI';
 interface ActionResponse {
   message: string;
   error?: string;
+  toolInfo?: {
+    tool: string;
+    parameters: any;
+  };
 }
 
 // Form status component using React 19's useFormStatus
@@ -58,6 +62,10 @@ export const AskAIButton: FC = () => {
       startTransition(() => {
         addOptimisticResponse({ 
           message: aiResponse.response,
+          toolInfo: aiResponse.selectedTool ? {
+            tool: aiResponse.selectedTool,
+            parameters: aiResponse.parameters || {}
+          } : undefined
         });
       });
     } catch (err) {
@@ -109,24 +117,43 @@ export const AskAIButton: FC = () => {
               autoFocus
             />
             <SubmitButton />
-            {optimisticResponse?.error || askError ? (
-              <p className="text-red-500 text-sm">{optimisticResponse?.error || askError}</p>
-            ) : optimisticResponse?.message ? (
-              <div className="mt-2 p-4 bg-muted rounded-md">
-                <p className="text-sm text-foreground">{optimisticResponse.message}</p>
+            <div className="mt-4">
+              {optimisticResponse && (
+                <div className="space-y-4">
+                  <p className={optimisticResponse.error ? "text-red-500" : "text-gray-700"}>
+                    {optimisticResponse.error || optimisticResponse.message}
+                  </p>
+                  {optimisticResponse.toolInfo && (
+                    <div className="mt-2 p-4 bg-gray-50 rounded-md">
+                      <p className="text-sm font-medium text-gray-900">Selected Tool: {optimisticResponse.toolInfo.tool}</p>
+                      {optimisticResponse.toolInfo.parameters && (
+                        <div className="mt-2">
+                          <p className="text-sm font-medium text-gray-900">Parameters:</p>
+                          <pre className="mt-1 text-sm text-gray-500 overflow-auto">
+                            {JSON.stringify(optimisticResponse.toolInfo.parameters, null, 2)}
+                          </pre>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+              <div className="flex gap-4 items-center mt-4">
                 {response && (
                   <div className="mt-2 text-sm text-muted-foreground">
-                    <p>Endpoint: {response.endpoint}</p>
-                    <p>Method: {response.method}</p>
+                    <p>Selected Tool: {response.selectedTool}</p>
                     {response.parameters && (
-                      <pre className="mt-2 p-2 bg-background rounded">
-                        {JSON.stringify(response.parameters, null, 2)}
-                      </pre>
+                      <>
+                        <p className="mt-1">Parameters:</p>
+                        <pre className="mt-1 bg-muted p-2 rounded">
+                          {JSON.stringify(response.parameters, null, 2)}
+                        </pre>
+                      </>
                     )}
                   </div>
                 )}
               </div>
-            ) : null}
+            </div>
           </div>
         </form>
       </DialogContent>

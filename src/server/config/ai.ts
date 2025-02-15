@@ -1,10 +1,10 @@
 import toolsConfig from '../../api/openapi-tools.json';
-import type { ChatCompletionTool } from 'openai/resources/chat/completions';
+import OpenAI from 'openai';
 
 // Convert OpenAPI tools to OpenAI's tool format
-function convertToOpenAITools(tools: typeof toolsConfig.tools): ChatCompletionTool[] {
+function convertToOpenAITools(tools: typeof toolsConfig.tools): OpenAI.ChatCompletionTool[] {
   return tools.map(tool => ({
-    type: 'function',
+    type: 'function' as const,
     function: {
       name: tool.name,
       description: tool.description,
@@ -14,11 +14,10 @@ function convertToOpenAITools(tools: typeof toolsConfig.tools): ChatCompletionTo
 }
 
 export const AI_CONFIG = {
-  model: 'gemini-2.0-flash',
-  temperature: 0.7,
+  model: 'gpt-4-turbo-preview',
+  temperature: 0.0,
   // Add your API key to .env file
-  apiKey: process.env.GEMINI_API_KEY || '',
-  baseURL: 'https://generativelanguage.googleapis.com/v1/models',
+  apiKey: process.env.OPENAI_API_KEY || '',
   systemPrompt: `You are a helpful API assistant. Your task is to understand the user's request and select the most appropriate API tool to help them.
 
 If you identify a relevant tool, respond with a JSON object containing:
